@@ -1,0 +1,220 @@
+---
+title: "Lab 2:ggpubr and ggplot2"
+author: ''
+date: ''
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# Code provided by Clarice Perryman, modified by Alma Hernandez
+```
+
+```{r, include=FALSE}
+#Previous code we have used in the lab
+
+# Calling the packages we need
+library("tidyverse")
+library("ggpubr")
+library("ggmap") 
+library("maps")
+library("mapdata")
+library('ggsn')
+
+#Uploading Sediment dataset
+# for RCloud this file path is "/cloud/project/Sediment.csv"
+sediment <- read.csv("Sediment.csv", skip = 4, header = TRUE, stringsAsFactors = TRUE)
+
+#Renaming 
+sediment <- sediment %>%
+  rename(Station = STATION.ID) %>%
+  rename(Location = LOCATION.NAME)
+
+sediment <- sediment %>%
+  rename(lat = EVNT_LAT) %>%
+  rename(long = EVNT_LNG) %>%
+  rename(Date = EVNTDATE) %>%
+  rename(Pesticides = PEST.Total) 
+
+sediment$Location<- sediment$Location %>% 
+  recode("Piscataqua_River" = "Piscataqua River") %>%
+  recode("Hampton River/Hampton Harbor" = "Hampton")
+
+sediment$Location<- sediment$Location %>% 
+  recode("Little_Bay" = "Little Bay") %>%
+  recode("Great_Bay" = "Great Bay") %>%
+  recode("Little_Harbor" = "Little Harbor")
+
+# Changing date format
+sediment$Date <- as.Date(sediment$Date, format = "%m / %d / %y")
+sediment$Year <- as.factor(format(sediment$Date, "%Y")) 
+
+# Filtering data
+sediment <- sediment %>%
+  filter(Location != "South Mill Pond") %>%
+  filter(!Year %in% c("2010", "2015")) #there's no 2007-2009 and 2011-2013, so removing these 2 years! 
+
+sediment <- sediment %>%
+  filter(!Location %in% c("Squamscott River", "Rye Harbor")) 
+
+```
+
+## Lab 2: Plotting Data ##
+
+Today we are plotting data! First up: go back up top and make sure all of your packages are loaded and data is cleaned (use the "environment" box to see if the changes you made previously are still there; if they aren't your code should be saved so you can just hit the green arrow in each code chunk to quickly clean up the data!)
+
+We will work with the packages ggpubr and ggplot2. ggpubr is a "wrapper" for ggplot2 - it produces the same plots with simpler code. The trade-off is a bit less customization capacity than ggplot2, so we will look at some ggplot2 code as well! I find both plotting packages to be a bit more user friendly for new users compared to base R plotting or other plotting packages. 
+
+If you want to learn more about ggpubr: http://www.sthda.com/english/articles/24-ggpubr-publication-ready-plots/ 
+And for more on ggplot2: https://ggplot2-book.org/introduction.html
+
+Let's start off with a barplot - these code chunks will plot a bar showing the mean concentration of each group with an error bar showing 1 standard deviation of the mean. I've set it so the bars are different colors for each group (fill = ) and the outlines and error bars are black (color = ). 
+
+You can pick custom fill/outline colors - the second bit of code in this chunk includes a line starting with "palette = " that sets specific colors. The second bit of code also changes the axis text size the prevent the labels from overlapping. 
+
+R knows a lot of color names! It also recognizes HEX codes. 
+Here is a long list of color names: http://www.stat.columbia.edu/~tzheng/files/Rcolor.pdf
+Here is a site to explore color palettes - you can use the HEX codes: https://colorbrewer2.org/#type=sequential&scheme=BuGn&n=3
+
+Run this code chunk to see the 2 plots it creates. Notice how they are different!  
+
+```{r}
+#basic bar plot
+
+
+ggbarplot(sediment, x = "Location", y = "Hg", add = c("mean_sd"), fill = "Location", xlab = "Location", ylab = expression ("Hg(ug g"^-1*" wet wt)"))
+
+
+#custom colors and axis text is smaller
+
+ggbarplot(sediment, x = "Location", y = "Hg", add = c("mean_sd"), fill = "Location", xlab = "Location", ylab = expression ("Hg(ug g"^-1*" wet wt)"), palette = c("orange", "green", "purple", "yellow", "blue", "red")) + font ("xy.text", size = 8)
+
+
+
+
+
+```
+
+In this code chunk, make a similar barplot as above with of any other numeric value (metals, TOC, etc.) in the sediment dataset. Use the "palette =  " command to customize the color of each bar (n = 6). Make sure to change your y-axis label! The units for all of the metals are the same, but for total pesticides the units are in ng instead of ug, and TOC, sand/silt, and moisture are in %. 
+
+```{r}
+
+# (5 points)
+
+ggbarplot(sediment, x = 'Location', y =  'SILTCLAY', fill = 'Location', color = "black", #plot a new variable on the y axis
+          palette = c("light green","pink", "light blue", "purple", "orange", "grey"), #add custom colors here
+          add = c("mean_sd"),
+          xlab = "Location", ylab = "%") + #make sure the change the axis label! 
+  font("xy.text", size = 9) #this line fixes the axis text size!
+
+```
+
+Now we will make boxplots. These plots are often preferred to barplots as they are more information rich. Instead of mean and standard deviation, they plot the median, quartiles, and outliers. You can also plot the mean on top of the boxes if you want.
+
+This code chunk makes 2 boxplots that are (nearly) identical. The difference is the top code plots using ggpubr and the bottom code uses ggplot2. Take a minute to notice how different the syntax is. Then run the code chunk to see what it creates.
+
+```{r}
+#essentially the same code as the barplot...but now we use "ggboxplot" and removed the error bar line. Also using hex codes to indicate the custom colors!
+ggboxplot(sediment, x = 'Location', y =  'Hg', fill = 'Location', color = "black", 
+          palette = c("#ff7f00", "#4daf4a", "#984ea3", "#ffff33", "#377eb8", "#e41a1c"),
+          xlab = "Location", ylab = expression("Hg (ug g"^-1*" wet wt)"))+
+  font("xy.text", size = 9) #this fixes the axis text size!
+
+#now: creating this plot in ggplot! renders the same plot, but shows more places to manipulate styling. 
+ggplot(data = sediment, aes(x = Location, y =  Hg, fill = Location))+ #sets up what data we are plotting
+  geom_boxplot(color = "black")+ #renders a boxplot
+  scale_fill_manual(values = c("#ff7f00", "#4daf4a", "#984ea3", "#ffff33", "#377eb8", "#e41a1c"))+ #custom fill colors
+  xlab("Location")+
+  ylab(expression("Hg (ug g"^-1*" dry wt)"))+
+  theme_classic()+ #takes away a grey background many users dislike...
+  theme(axis.text.x = element_text(size = 9),
+        legend.position = "top") #changes axis text size and moves the legends to the top of the plot
+```
+
+In this code chunk, make a boxplot plotting the same variable you plotted in your barplot (i.e. if you made a barplot of TOC at the different locations, make a boxplot of TOC). You can use either the ggpubr code or the ggplot2 code to make a boxplot, your choice. 
+
+Make sure to change your y-axis label! The units for all of the metals are the same, but for total pesticides the units are in ng instead of ug, and TOC, sand/silt, and moisture are in %. 
+
+```{r}
+# (5 points) make a new boxplot here! 
+
+ggplot(data = sediment, aes(x = Location, y =  SILTCLAY, fill = Location))+ #sets up what data we are plotting
+  geom_boxplot(color = "black")+ #renders a boxplot
+  scale_fill_manual(values = c("thistle2", "slateblue1", "aquamarine", "darkolivegreen3", "palegreen4", "mediumorchid1"))+ #custom fill colors
+  xlab("Location")+
+  ylab("%") +
+  theme_classic()+ #takes away a grey background many users dislike...
+  theme(axis.text.x = element_text(size = 9),
+        legend.position = "top") #changes axis text size and moves the legends to the top of the plot
+```
+
+Now we'll make a quick scatter plot! This code chunk will render 2 identical plots of sediment TOC vs. Hg, including a regression line. Again, I am showing you code for both ggpubr and ggplot2. Run this code chunk to see the plots it makes. 
+
+```{r}
+#scatterplot w/ regression line in ggpubr...
+ggscatter(sediment, x = 'TOC', y =  'Hg',
+          xlab = "Total organic carbon (%)", ylab = expression("Hg (ug g"^-1*" wet wt)"), 
+          color = "black", size = 3, 
+          add = "reg.line", add.params = list(color = "green", linetype = "dashed")) #this line creates a simple linear regression line
+
+#written in ggplot2
+ggplot(data = sediment, aes(x = TOC, y = Hg))+
+  geom_point(color = "black", size = 3)+
+  geom_smooth(method = lm, se = FALSE, color = "green", lty = 2)+ #and here is the regression line code in ggplot! 
+  xlab("Total organic carbon (%)")+
+  ylab(expression("Hg (ug g"^-1*" dry wt)"))+
+  theme_classic()
+
+```
+
+In this code chunk, make a scatter plot of any other 2 columns from the sediment dataframe. Change the point color, regression line color, *AND the point shape* (first time we're doing this! see if you can figure out how... HINT the code is "shape = ") to whatever you'd like! Make sure to change your axis labels! Use either ggpubr or ggplot2 to make this scatterplot. 
+
+Click here to see what point shape options there are in R. Like colors, R knows both words ("circle", "diamond", "square", "triangle", etc.) and numbers for shapes. http://www.sthda.com/english/wiki/ggplot2-point-shapes 
+
+```{r}
+# (5 points) make a new scatter plot here! 
+ggplot(data = sediment, aes(x = SILTCLAY, y = Pb))+
+  geom_point(color = "black", size = 3)+
+  geom_smooth(method = lm, se = FALSE, color = "purple", lty = 2)+ #and here is the regression line code in ggplot! 
+  xlab("SILTCLAY (%)")+
+  ylab(expression("Pb (ug g"^-1*" dry wt)"))+
+  theme_classic()
+
+
+```
+
+You can also style scatter plots to show points from different locations. Here we'll try 2 ways: 1) changing the point colors and 2) using a facet wrap the produces a grid of multiple scatter plots. Run this chunk to see what it creates. Which visualization do you think is more effective? 
+
+```{r}
+#scatter plot with points color coded by location
+ggplot(data = sediment, aes(x = TOC, y = Hg, color = Location))+
+  geom_point(size = 3)+
+  geom_smooth(method = lm, se = FALSE, color = "black", lty = 2)+ #and here is the reg line code in ggplot! 
+  xlab("Total organic carbon (%)")+
+  ylab(expression("Hg (ug g"^-1*" dry wt)"))+
+  theme_bw() #also showing that ggplot has MANY built in "themes" - themes set different background/axis styling. 
+
+#makes a grid of scatter plots
+ggplot(data = sediment, aes(x = TOC, y = Hg))+
+  geom_point(color = "black", size = 3)+
+  geom_smooth(method = lm, se = FALSE, color = "red", lty = 2)+ #and here is the reg line code in ggplot! 
+  xlab("Total organic carbon (%)")+
+  ylab(expression("Hg (ug g"^-1*" dry wt)"))+
+  theme_bw()+
+  facet_wrap(~ Location) #this line creates a grid of scatter plots!
+```
+
+In this code chunk, add a facet wrap to the custom scatter plot you made earlier to plot a grid of scatter plots. 
+
+```{r}
+# (5 points) make facet wrapped scatter plots here! 
+ggplot(data = sediment, aes(x = SILTCLAY, y = Pb))+
+  geom_point(color = "black", size = 3)+
+  geom_smooth(method = lm, se = FALSE, color = "purple", lty = 2)+ #and here is the regression line code in ggplot! 
+  xlab("SILTCLAY (%)")+
+  ylab(expression("Pb (ug g"^-1*" dry wt)"))+
+  theme_classic()+
+   facet_wrap(~ Location)
+```
